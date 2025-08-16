@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garden Monitor</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta http-equiv="refresh" content="60">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        /* Ensure html and body take full viewport height, but allow scrolling on body */
+        html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light background */
+            color: #334155; /* Darker text for contrast */
+            display: flex;
+            flex-direction: column; /* Changed to column for footer */
+            justify-content: space-between; /* Space between content and footer */
+            align-items: center; /* Center content horizontally */
+            min-height: 100vh; /* Ensures body is at least viewport height */
+            padding: 10px; /* Reduced padding around the outside of the white box */
+            box-sizing: border-box;
+            overflow-y: auto; /* Allow body content to scroll if it overflows */
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 1rem; /* Reduced padding inside the white box */
+            border-radius: 1rem; /* More rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Softer shadow */
+            max-width: 900px; /* Max width for larger screens */
+            width: 100%;
+            margin-top: 0; /* Removed top margin as body padding handles it */
+            flex-grow: 1; /* Allows container to grow and push footer down */
+        }
+        h1 {
+            color: #1e293b; /* Darker heading */
+            margin-bottom: 0.5rem; /* Reduced margin below heading to make space for subtitle */
+            font-size: 2.5rem; /* Set to match moisture value font size */
+            font-weight: 900; /* Increased font-weight to make it bolder */
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.9rem;
+            color: #64748b;
+            text-align: center;
+            margin-bottom: 0.5rem; /* Reduced margin for multiple subtitle lines */
+        }
+        .small-subtitle { /* New class for smaller subtitle */
+            font-size: 0.8rem; /* Slightly smaller than .subtitle */
+            color: #64748b;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .error-box {
+            background-color: #fecaca; /* Light pink background */
+            color: #b91c1c; /* Dark red text */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-weight: 500;
+            border: 1px solid #ef4444; /* Red border */
+        }
+        .sensor-card {
+            background-color: #f8fafc; /* Lighter card background */
+            padding: 0.4rem;
+            border-radius: 0.75rem;
+            margin-bottom: 0.25rem; /* Reduced vertical spacing between sensor cards */
+            border: 1px solid #e2e8f0; /* Subtle border */
+            display: flex; /* Use flexbox for internal layout */
+            justify-content: space-between; /* Space out text and chart */
+            align-items: center; /* Vertically align items */
+            gap: 0.25rem; /* Reduced gap between text and chart */
+        }
+        /* Adjust grid gap for sensor cards */
+        #sensor-data-container {
+            gap: 0.25rem; /* Reduced vertical spacing between sensor cards */
+        }
+        .sensor-text-content {
+            display: flex;
+            flex-direction: column; /* Stack name and details row vertically */
+            width: 150px; /* Fixed width to align chart start */
+            flex-shrink: 0; /* Prevent shrinking below fixed width */
+            padding-right: 0.5rem; /* Padding before the chart */
+        }
+        .sensor-name {
+            font-size: 0.9rem; /* Increased from 0.8rem to 0.9rem */
+            font-weight: 800;
+            color: #1a202c;
+            white-space: nowrap; /* Prevent line wrapping */
+            overflow: hidden; /* Hide overflow text */
+            text-overflow: ellipsis; /* Show ellipsis for overflow text */
+            margin-bottom: 0.2rem; /* Small margin below name */
+        }
+        .sensor-details-row { /* New class for the row containing battery and moisture */
+            display: flex;
+            justify-content: space-between; /* Space out battery and moisture */
+            align-items: flex-end; /* Align items to the bottom, especially for moisture value */
+            width: 100%; /* Ensure it takes full width of parent */
+        }
+        /* New CSS for the battery icon container */
+        .battery-icon-container {
+            font-size: 0.7rem; /* Use a small font size for "Battery:" text */
+            color: #4b5563; /* Use a medium gray color */
+        }
+        /* CUSTOMIZATION: The battery icon is now 2/3 of its original size */
+        .battery-icon {
+            height: 14px;
+            width: 24px;
+        }
+        .moisture-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            line-height: 1; /* Compact line height */
+            margin: 0; /* Remove default margins */
+            padding: 0; /* Remove default padding */
+            text-align: right; /* Align text to the right within its column */
+        }
+        .sensor-chart {
+            flex: 1; /* Allow it to grow and fill remaining space after text content */
+            height: 60px; /* Fixed height for the chart */
+            border: 1px solid #cbd5e1; /* Light border for the chart */
+            border-radius: 0.25rem;
+            background-color: #ffffff;
+            cursor: pointer; /* Indicate clickable */
+        }
+        .page-footer {
+            margin-top: 10px; /* Reduced space above footer */
+            text-align: center;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        .page-footer a {
+            color: #3b82f6; /* Link color */
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .page-footer a:hover {
+            text-decoration: underline;
+        }
+        .footer-update-line { /* New class for last updated line in footer */
+            font-size: 0.75rem; /* Smaller font size */
+            color: #64748b;
+            margin-top: 5px; /* Minimal margin from link */
+        }
+        .footer-error-line { /* New class for footer error line */
+            font-size: 0.75rem; /* Even smaller font size */
+            color: #64748b;
+            margin-top: 5px; /* Minimal margin from link */
+        }
+
+        /* Color definitions for moisture and battery - Increased specificity */
+        .moisture-value.color-green { color: #22c55e; } /* Stable */
+        .moisture-value.color-yellow { color: #eab308; } /* Water soon */
+        .moisture-value.color-orange { color: #f97316; } /* Water ASAP */
+        .moisture-value.color-red { color: #ef4444; }   /* Critical */
+
+        /* Zoomed Chart Overlay Styles */
+        #zoomed-chart-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw; /* Use viewport units for full coverage */
+            height: 100vh; /* Use viewport units for full coverage */
+            background-color: rgba(17, 24, 39, 0.9); /* bg-gray-900 with opacity */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50; /* Higher than other content */
+        }
+        #zoomed-chart-overlay.hidden {
+            display: none;
+        }
+        #zoomed-chart-container {
+            background-color: #ffffff;
+            padding: 1.5rem; /* Adjusted padding */
+            border-radius: 0.75rem; /* Rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); /* Stronger shadow for focus */
+            width: calc(100% - 40px); /* 100% minus 2x20px padding from body */
+            max-width: 900px; /* Max width for larger screens */
+            position: relative; /* For tooltip positioning and close button */
+            max-height: calc(100vh - 40px); /* Account for body padding */
+            overflow-y: auto; /* Allow scrolling if content is too tall */
+        }
+        #zoomed-chart-title {
+            font-size: 1.75rem; /* Larger title for zoomed view */
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+        #zoomed-chart-canvas {
+            width: 100%;
+            height: 300px; /* Fixed height for the zoomed chart, adjust as needed */
+            min-height: 200px; /* Minimum height for chart */
+            border: 1px solid #cbd5e1;
+            border-radius: 0.25rem;
+            background-color: #ffffff;
+        }
+        #zoomed-value-display {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.7); /* Dark background for visibility */
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            pointer-events: none; /* Allows clicks to pass through to underlying elements */
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.15s ease-in-out;
+            transform: translate(-50%, -120%); /* Initial positioning above cursor */
+        }
+        #zoomed-close-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #64748b;
+            cursor: pointer;
+            padding: 0.5rem;
+            line-height: 1;
+            z-index: 51; /* Ensure it's above other elements in the container */
+        }
+        #zoomed-close-button:hover {
+            color: #1e293b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="timestamp-info">
+            </div>
+        <div id="sensor-data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1"> <p id="loading-message" class="text-center text-gray-500 col-span-full">Loading sensor data...</p>
+        </div>
+
+        <div id="color-key" class="mt-1 py-2 px-4 bg-white rounded-lg shadow"> <div class="flex flex-wrap justify-center items-center text-sm space-x-4">
+                <div class="flex items-center">
+                    <span class="inline-block w-3 h-3 rounded-full mr-1 bg-green-500"></span> Stable
+                </div>
+                <div class="flex items-center">
+                    <span class="inline-block w-3 h-3 rounded-full mr-1 bg-yellow-500"></span> Water any time
+                </div>
+                <div class="flex items-center">
+                    <span class="inline-block w-3 h-3 rounded-full mr-1 bg-orange-500"></span> Water ASAP
+                </div>
+                <div class="flex items-center">
+                    <span class="inline-block w-3 h-3 rounded-full mr-1 bg-red-500"></span> Critical
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="page-footer">
+		<!--<a href="https://plantreference.neocities.org/" target="_blank" rel="noopener noreferrer">Plant Care Sheets</a> -->
+        <div id="last-updated-footer-info" class="footer-update-line">
+            </div>
+        <div id="last-error-info" class="footer-error-line">
+            </div>
+    </footer>
+
+    <div id="zoomed-chart-overlay" class="hidden">
+        <div id="zoomed-chart-container">
+            <button id="zoomed-close-button">X</button>
+            <h2 id="zoomed-chart-title"></h2>
+            <div id="zoomed-custom-thresholds" class="text-center text-sm text-gray-600 mb-4"></div> <canvas id="zoomed-chart-canvas"></canvas>
+            <div id="zoomed-value-display"></div>
+        </div>
+    </div>
+
+    <script src="customization.html"></script>
+
+    <script>
+        /**
+         * Generates an SVG string for a battery icon based on the given battery level.
+         * The icon changes color and the number of bars based on the value.
+         * @param {number} batteryValue - An integer from 0 to 5 representing battery level.
+         * @returns {string} The SVG element as a string.
+         */
+        function createBatterySVG(batteryValue) {
+            // Determine the color based on the battery value
+            let color = '#22c55e'; // Green
+            if (batteryValue <= 2 && batteryValue > 0) {
+                color = '#eab308'; // Yellow
+            }
+            if (batteryValue === 0) {
+                color = '#ef4444'; // Red
+            }
+
+            // Calculate the number of bars to display
+            const numBars = batteryValue;
+
+            // Generate the SVG string with updated coordinates for better centering and smaller size
+            let svgString = `
+                <svg class="battery-icon" viewBox="0 0 35 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="0" y="2" width="30" height="16" rx="3" stroke="${color}" stroke-width="2"/>
+                    <rect x="30" y="7" width="5" height="6" rx="1" fill="${color}"/>
+            `;
+
+            // Add the inner bars based on the battery level.
+            // The starting X-position has been adjusted from 4 to 3 to center the bars.
+            for (let i = 0; i < numBars; i++) {
+                // The xPos is calculated from the left side of the main body rect
+                const xPos = 3 + (i * 5);
+                svgString += `<rect x="${xPos}" y="5" width="4" height="10" rx="1" fill="${color}"/>`;
+            }
+
+            svgString += `</svg>`;
+            return svgString;
+        }
+
+        // Helper function to get the correct thresholds for a given sensor channel ID
+        function getThresholdsForSensor(channelId) {
+            // Ensure SENSOR_MOISTURE_THRESHOLDS is an object, even if customization.html fails or is empty.
+            const customThresholds = typeof SENSOR_MOISTURE_THRESHOLDS !== 'undefined' && SENSOR_MOISTURE_THRESHOLDS !== null
+                ? SENSOR_MOISTURE_THRESHOLDS
+                : {};
+            return customThresholds[channelId] || DEFAULT_MOISTURE_THRESHOLDS;
+        }
+
+        // Helper function to get CSS color based on moisture value and sensor channel ID
+        function getMoistureColor(moisture, channelId) {
+            const thresholds = getThresholdsForSensor(channelId);
+            if (moisture >= thresholds.good) {
+                return '#22c55e'; // Stable
+            } else if (moisture >= thresholds.fair) {
+                return '#eab308'; // Water soon
+            } else if (moisture >= thresholds.warning) {
+                return '#f97316'; // Water ASAP
+            } else {
+                return '#ef4444'; // Critical
+            }
+        }
+
+        /**
+         * Determines the CSS class for moisture color based on its value and sensor channel ID.
+         * @param {number} moisture The moisture percentage.
+         * @param {string} channelId The ID of the sensor channel (e.g., "1", "2").
+         * @returns {string} The CSS class for coloring.
+         */
+        function getMoistureColorClass(moisture, channelId) {
+            const thresholds = getThresholdsForSensor(channelId);
+            if (moisture >= thresholds.good) {
+                return 'color-green';
+            } else if (moisture >= thresholds.fair) {
+                return 'color-yellow';
+            } else if (moisture >= thresholds.warning) {
+                return 'color-orange';
+            } else { // moisture < thresholds.warning
+                return 'color-red';
+            }
+        }
+
+        // --- Chart Drawing Function ---
+        /**
+         * Draws a simple line chart on the given canvas.
+         * @param {HTMLCanvasElement} canvas The canvas element to draw on.
+         * @param {Array<Array<number>>} data Historical data in [[timestamp, humidity], ...] format.
+         * @param {string} channelId The ID of the sensor channel to get specific thresholds.
+         */
+        function drawChart(canvas, data, channelId) { // Pass channelId here
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+
+            if (data.length === 0) {
+                ctx.fillStyle = '#64748b'; // Muted color for no data
+                ctx.font = '8px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data', width / 2, height / 2 + 4);
+                return;
+            }
+
+            // Define margins for the chart within the canvas
+            const margin = { top: 2, right: 2, bottom: 12, left: 2 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+
+            // Scales
+            const xScale = d3.scaleTime()
+                .domain([Date.now() - (24 * 60 * 60 * 1000), Date.now()]) // Last 24 hours
+                .range([chartWidth, 0]); // REVERSED RANGE: Now is left, 24h ago is right
+
+            const yScale = d3.scaleLinear()
+                .domain([0, 100]) // Humidity 0% to 100%
+                .range([chartHeight, 0]);
+
+            // Draw horizontal dotted lines at 0%, 50%, 100%
+            ctx.strokeStyle = '#cbd5e1'; /* Faint gray color for grid lines */
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([2, 2]); /* Dotted line pattern */
+
+            // 100% line
+            ctx.beginPath();
+            ctx.moveTo(margin.left, yScale(100) + margin.top);
+            ctx.lineTo(width - margin.right, yScale(100) + margin.top);
+            ctx.stroke();
+
+            // 50% line
+            ctx.beginPath();
+            ctx.moveTo(margin.left, yScale(50) + margin.top);
+            ctx.lineTo(width - margin.right, yScale(50) + margin.top);
+            ctx.stroke();
+
+            // 0% line
+            ctx.beginPath();
+            ctx.moveTo(margin.left, yScale(0) + margin.top);
+            ctx.lineTo(width - margin.right, yScale(0) + margin.top);
+            ctx.stroke();
+
+            // Draw vertical dotted lines for 8h and 16h marks
+            const eightHoursAgo = new Date(Date.now() - (8 * 60 * 60 * 1000));
+            const sixteenHoursAgo = new Date(Date.now() - (16 * 60 * 60 * 1000));
+
+            ctx.beginPath();
+            ctx.moveTo(xScale(eightHoursAgo) + margin.left, margin.top);
+            ctx.lineTo(xScale(eightHoursAgo) + margin.left, height - margin.bottom);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(xScale(sixteenHoursAgo) + margin.left, margin.top);
+            ctx.lineTo(xScale(sixteenHoursAgo) + margin.left, height - margin.bottom);
+            ctx.stroke();
+
+            ctx.setLineDash([]); /* Reset line dash to solid for data line */
+
+            // Draw X-axis labels
+            const formatTime = d3.timeFormat("%H:%M");
+            const twentyFourHoursAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
+
+            ctx.fillStyle = '#333333';
+            ctx.font = '8.5px Inter'; // Smaller font for labels
+            ctx.textBaseline = 'top';
+
+            // "Now" label (left side)
+            ctx.textAlign = 'left';
+            ctx.fillText('now', margin.left, height - margin.bottom + 2);
+
+            // 8 hours ago label (middle-left, but now closer to the right)
+            ctx.textAlign = 'center';
+            ctx.fillText(formatTime(eightHoursAgo), xScale(eightHoursAgo) + margin.left, height - margin.bottom + 2);
+
+            // 16 hours ago label (middle-right, but now closer to the left)
+            ctx.textAlign = 'center';
+            ctx.fillText(formatTime(sixteenHoursAgo), xScale(sixteenHoursAgo) + margin.left, height - margin.bottom + 2);
+
+            // "24 hours ago" label (right side)
+            ctx.textAlign = 'right';
+            ctx.fillText(formatTime(twentyFourHoursAgo), width - margin.right, height - margin.bottom + 2);
+
+            // Draw line segments, handling gaps
+            let previousPoint = null;
+            ctx.beginPath();
+            ctx.strokeStyle = '#94a3b8'; // Light gray line
+            ctx.lineWidth = 1;
+
+            // Define a gap threshold (e.g., 1.5 times the expected interval, which is 1 minute = 60000 ms)
+            // If the time difference between two consecutive points exceeds this, break the line.
+            const expectedIntervalMs = 60 * 1000; // 1 minute in milliseconds
+            const gapThresholdMs = expectedIntervalMs * 1.5; // 1.5 times the expected interval
+
+            data.forEach((d, i) => {
+                const x = xScale(d[0]) + margin.left;
+                const y = yScale(d[1]) + margin.top;
+
+                if (previousPoint && (Math.abs(d[0] - previousPoint[0]) > gapThresholdMs)) { // Use Math.abs for difference
+                    // If the time gap is too large, finish the current segment and start a new one
+                    ctx.stroke(); // Finish previous segment
+                    ctx.beginPath(); // Start a new path
+                    ctx.moveTo(x, y); // Move to the current point
+                } else if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                previousPoint = d;
+            });
+            ctx.stroke(); // Ensure the last segment is stroked
+
+            // Draw points
+            data.forEach(d => {
+                const x = xScale(d[0]) + margin.left;
+                const y = yScale(d[1]) + margin.top;
+                const humidity = d[1];
+
+                ctx.beginPath();
+                ctx.arc(x, y, 1.5, 0, 2 * Math.PI); // Point radius
+                ctx.fillStyle = getMoistureColor(humidity, channelId); // Use color mapping based on channelId
+                ctx.fill();
+            });
+        }
+
+
+        // --- Zoomed Chart Functions ---
+        const zoomedChartOverlay = document.getElementById('zoomed-chart-overlay');
+        const zoomedChartCanvas = document.getElementById('zoomed-chart-canvas');
+        const zoomedChartTitle = document.getElementById('zoomed-chart-title');
+        const zoomedValueDisplay = document.getElementById('zoomed-value-display');
+        const mainSensorContainer = document.getElementById('sensor-data-container');
+        const zoomedChartContainer = document.getElementById('zoomed-chart-container'); // The div containing canvas and title
+        const zoomedCloseButton = document.getElementById('zoomed-close-button'); // New: Close button
+        const zoomedCustomThresholdsDiv = document.getElementById('zoomed-custom-thresholds'); // New: Custom thresholds display
+
+        function showZoomedChart(rawSensorName, channelId, hubNumber, chartData) {
+            console.log(`Zooming into [${hubNumber}] ${rawSensorName} (Channel ID: ${channelId}). Data points: ${chartData.length}`);
+            console.log('Chart Data for zoom:', chartData); // Log the data being passed
+
+            // Set title
+            // Correctly apply the showHubId logic here as well
+            const displayHubPrefix = (typeof showHubId !== 'undefined' && showHubId)
+                ? `[${hubNumber}] `
+                : '';
+            zoomedChartTitle.textContent = `${displayHubPrefix}${rawSensorName}`;
+
+            // Display custom thresholds
+            const currentSensorThresholds = getThresholdsForSensor(channelId);
+            const isCustom = JSON.stringify(currentSensorThresholds) !== JSON.stringify(DEFAULT_MOISTURE_THRESHOLDS);
+
+            // Corrected threshold display text to match actual logic (>= and <)
+            if (isCustom) {
+                zoomedCustomThresholdsDiv.innerHTML = `
+                    <p><strong>Custom Thresholds:</strong></p>
+                    <p>Stable: &ge;${currentSensorThresholds.good}% | Water soon: ${currentSensorThresholds.fair}% - &lt;${currentSensorThresholds.good}% | Water ASAP: ${currentSensorThresholds.warning}% - &lt;${currentSensorThresholds.fair}% | Critical: &lt;${currentSensorThresholds.warning}%</p>
+                `;
+            } else {
+                zoomedCustomThresholdsDiv.innerHTML = `
+                    <p><strong>Default Thresholds:</strong></p>
+                    <p>Stable: &ge;${DEFAULT_MOISTURE_THRESHOLDS.good}% | Water soon: ${DEFAULT_MOISTURE_THRESHOLDS.fair}% - &lt;${DEFAULT_MOISTURE_THRESHOLDS.good}% | Water ASAP: ${DEFAULT_MOISTURE_THRESHOLDS.warning}% - &lt;${DEFAULT_MOISTURE_THRESHOLDS.fair}% | Critical: &lt;${DEFAULT_MOISTURE_THRESHOLDS.warning}%</p>
+                `;
+            }
+
+
+            // Show overlay first to ensure clientWidth/Height are correct
+            zoomedChartOverlay.classList.remove('hidden');
+            // Hide the main sensor container to give focus to the zoomed chart
+            mainSensorContainer.classList.add('hidden');
+
+            // Set body overflow to hidden when zoomed chart is active
+            document.body.style.overflow = 'hidden';
+
+            // Use requestAnimationFrame to ensure canvas has rendered before getting its dimensions
+            requestAnimationFrame(() => {
+                zoomedChartCanvas.width = zoomedChartCanvas.clientWidth;
+                zoomedChartCanvas.height = zoomedChartCanvas.clientHeight;
+                console.log(`Zoomed canvas dimensions: ${zoomedChartCanvas.width}x${zoomedChartCanvas.height}`);
+
+                // Draw the zoomed chart
+                drawChart(zoomedChartCanvas, chartData, channelId); // Reuse drawChart, passing channelId
+            });
+
+
+            // Add event listener to hide when clicking outside the chart container
+            zoomedChartOverlay.onclick = (event) => {
+                if (!zoomedChartContainer.contains(event.target)) {
+                    hideZoomedChart();
+                }
+            };
+
+            // Add click listener to the close button
+            zoomedCloseButton.onclick = hideZoomedChart;
+
+
+            // Add mousemove listener for value display
+            zoomedChartCanvas.onmousemove = (event) => {
+                const rect = zoomedChartCanvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+
+                // Define chart area for scaling (same as in drawChart)
+                const margin = { top: 2, right: 2, bottom: 12, left: 2 };
+                const chartWidth = zoomedChartCanvas.width - margin.left - margin.right;
+
+                // Find the closest data point
+                const xScale = d3.scaleTime()
+                    .domain([Date.now() - (24 * 60 * 60 * 1000), Date.now()])
+                    .range([chartWidth, 0]); // REVERSED RANGE for zoomed chart too
+
+                let closestPoint = null;
+                let minDist = Infinity;
+
+                // Only iterate if there's data to avoid errors and unnecessary work
+                if (chartData && chartData.length > 0) {
+                    chartData.forEach(d => {
+                        const x = xScale(d[0]) + margin.left; // Apply margin to x coordinate
+                        const dist = Math.abs(x - mouseX);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closestPoint = d;
+                        }
+                    });
+                }
+
+                if (closestPoint) {
+                    const humidityValue = closestPoint[1];
+                    const timestampValue = new Date(closestPoint[0]);
+                    zoomedValueDisplay.textContent = `${humidityValue.toFixed(1)}% (${d3.timeFormat("%H:%M")(timestampValue)})`; // Format humidity to 1 decimal
+                    zoomedValueDisplay.style.opacity = '1';
+
+                    // Position the tooltip relative to the mouse cursor
+                    const tooltipX = event.clientX;
+                    const tooltipY = event.clientY;
+
+                    zoomedValueDisplay.style.left = `${tooltipX}px`;
+                    zoomedValueDisplay.style.top = `${tooltipY}px`;
+                    zoomedValueDisplay.style.transform = 'translate(-50%, calc(-100% - 10px))';
+
+                    // --- NEW LOGIC FOR FLIPPING TOOLTIP ---
+                    const chartCanvasWidth = zoomedChartCanvas.width;
+                    const mouseXOnCanvas = event.clientX - rect.left;
+                    const rightmost20Percent = chartCanvasWidth * 0.8;
+
+                    if (mouseXOnCanvas > rightmost20Percent) {
+                        // Flip to the left of the cursor
+                        zoomedValueDisplay.style.left = `${tooltipX}px`;
+                        zoomedValueDisplay.style.transform = 'translate(calc(-220% - 10px), calc(-100% - 10px))';
+                    } else {
+                        // Keep on the right, centered below the cursor
+                        zoomedValueDisplay.style.left = `${tooltipX}px`;
+                        zoomedValueDisplay.style.transform = 'translate(-10%, calc(-100% - 10px))';
+                    }
+
+                    zoomedValueDisplay.style.top = `${tooltipY}px`;
+                    // --- END OF NEW LOGIC ---
+					
+                    // Basic boundary checks
+                    const tooltipRect = zoomedValueDisplay.getBoundingClientRect();
+                    if (tooltipRect.right > window.innerWidth) {
+                        zoomedValueDisplay.style.left = `${tooltipX - (tooltipRect.right - window.innerWidth)}px`;
+                    }
+                    if (tooltipRect.left < 0) {
+                        zoomedValueDisplay.style.left = `${tooltipX - tooltipRect.left}px`;
+                    }
+                    if (tooltipRect.top < 0) {
+                        zoomedValueDisplay.style.top = `${tooltipY - tooltipRect.top}px`;
+                        zoomedValueDisplay.style.transform = 'translate(-50%, 10px)';
+                    }
+                    console.log(`Hovering over: ${humidityValue.toFixed(1)}% at ${d3.timeFormat("%H:%M")(timestampValue)}`);
+                } else {
+                    zoomedValueDisplay.style.opacity = '0'; // Hide if no closest point
+                    console.log('Mouse left zoomed chart canvas.');
+                }
+            };
+
+            zoomedChartCanvas.onmouseleave = () => {
+                zoomedValueDisplay.style.opacity = '0';
+                console.log('Mouse left zoomed chart canvas.');
+            };
+        }
+
+        function hideZoomedChart() {
+            zoomedChartOverlay.classList.add('hidden');
+            mainSensorContainer.classList.remove('hidden');
+
+            // Restore body overflow to auto when zoomed chart is hidden
+            document.body.style.overflow = ''; // Clears inline style, allowing CSS rule to take over
+
+            // Clean up event listeners to prevent memory leaks and unexpected behavior
+            zoomedChartOverlay.onclick = null;
+            zoomedCloseButton.onclick = null; // Clean up close button listener
+            zoomedChartCanvas.onmousemove = null;
+            zoomedChartCanvas.onmouseleave = null;
+            zoomedValueDisplay.style.opacity = '0'; // Ensure it's hidden
+            zoomedChartTitle.textContent = ''; // Clear title
+            zoomedCustomThresholdsDiv.innerHTML = ''; // Clear custom thresholds
+            const ctx = zoomedChartCanvas.getContext('2d');
+            ctx.clearRect(0, 0, zoomedChartCanvas.width, zoomedChartCanvas.height); // Clear canvas
+            console.log('Zoomed chart hidden.');
+        }
+
+        // --- Main Data Fetch and Display Function ---
+        const MAX_HISTORY_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        const DATA_FILES = ['data-1.json', 'data-2.json', 'data-3.json', 'data-4.json']; // Array of data files
+
+        async function fetchAndDisplayData() {
+            const timestampInfoDiv = document.getElementById('timestamp-info'); // This will now only be used for the error-box
+            const container = document.getElementById('sensor-data-container');
+            const loadingMessage = document.getElementById('loading-message');
+            const lastUpdatedFooterInfoDiv = document.getElementById('last-updated-footer-info'); // New div for last updated
+            const lastErrorInfoDiv = document.getElementById('last-error-info'); // Get the new error info div
+
+            const currentTime = Date.now();
+
+            // --- Step 1: Fetch timestamp.json ---
+            let hasOverallFetchError = false; // Overall error from timestamp.json
+            let overallLastUpdatedTimestamp = null;
+            let overallFetchErrorMessage = '';
+            let hubStatuses = {}; // To store status for each hub
+
+            try {
+                const timestampResponse = await fetch('timestamp.json');
+                if (!timestampResponse.ok) {
+                    throw new Error(`HTTP error! status: ${timestampResponse.status} for timestamp.json`);
+                }
+                const timestampData = await timestampResponse.json();
+
+                overallLastUpdatedTimestamp = timestampData.overall_timestamp; // Get overall timestamp
+                hubStatuses = timestampData.hubs || {}; // Get individual hub statuses
+
+                // Check if any configured hub reported an error
+                for (const fileKey in hubStatuses) {
+                    if (hubStatuses.hasOwnProperty(fileKey) && hubStatuses[fileKey].status === 'error') {
+                        hasOverallFetchError = true;
+                        overallFetchErrorMessage = overallFetchErrorMessage ? `${overallFetchErrorMessage}; ${fileKey}: ${hubStatuses[fileKey].message}` : `${fileKey}: ${hubStatuses[fileKey].message}`;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error fetching or parsing timestamp.json:', error);
+                hasOverallFetchError = true;
+                overallFetchErrorMessage = `Could not load current timestamp information. Details: ${error.message}`;
+                overallLastUpdatedTimestamp = new Date().toISOString(); // Fallback
+            }
+
+            // --- Step 2: Fetch lasterror.json to get the last logged error time for each hub ---
+            let lastLoggedErrors = {}; // Object to store last error timestamp per file
+            try {
+                const lastErrorResponse = await fetch('lasterror.json');
+                if (lastErrorResponse.ok) {
+                    lastLoggedErrors = await lastErrorResponse.json();
+                }
+            } catch (error) {
+                console.warn('lasterror.json not found or invalid:', error);
+            }
+
+            // --- Display overall status based on timestamp.json and lasterror.json ---
+            if (hasOverallFetchError) {
+                timestampInfoDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Current Data Fetch Error:</strong> ${overallFetchErrorMessage}
+                        <br>
+                        Overall last fetch attempt: ${overallLastUpdatedTimestamp ? new Date(overallLastUpdatedTimestamp).toLocaleString() : 'N/A'}
+                    </div>
+                `;
+                // Clear footer error if there's a current overall error
+                lastUpdatedFooterInfoDiv.innerHTML = ''; // Clear last updated in footer
+                lastErrorInfoDiv.innerHTML = ''; // Clear last error in footer
+            } else {
+                // Clear the top timestamp info div as it's no longer needed for non-errors
+                timestampInfoDiv.innerHTML = '';
+
+                let updatedInfoHtml = `Last updated: `; // No <p> tag here, just text
+                let hubUpdates = [];
+                for (let i = 0; i < DATA_FILES.length; i++) { // Iterate through expected data files
+                    const fileKey = DATA_FILES[i];
+                    const match = fileKey.match(/data-(\d+)\.json/);
+                    if (match) {
+                        const hubNumber = match[1];
+                        const hubStatus = hubStatuses[fileKey];
+
+                        // Only show if the hub was configured and attempted to fetch (not 'skipped')
+                        if (hubStatus && hubStatus.status !== 'skipped') {
+                            const fetchTime = hubStatus.last_fetch ? new Date(hubStatus.last_fetch).toLocaleString() : 'N/A';
+                            hubUpdates.push(`Hub ${hubNumber}: ${fetchTime}`);
+                        }
+                    }
+                }
+                if (hubUpdates.length > 0) {
+                    lastUpdatedFooterInfoDiv.textContent = updatedInfoHtml + hubUpdates.join(', ');
+                } else {
+                    lastUpdatedFooterInfoDiv.textContent = updatedInfoHtml + 'No active hubs updated.';
+                }
+
+                // Populate the footer error info
+                let lastErrorLines = [];
+                for (const fileKey in lastLoggedErrors) {
+                    if (lastLoggedErrors.hasOwnProperty(fileKey)) {
+                        const match = fileKey.match(/data-(\d+)\.json/);
+                        if (match) {
+                            const hubNumber = match[1];
+                            lastErrorLines.push(`Hub ${hubNumber}: ${new Date(lastLoggedErrors[fileKey]).toLocaleString()}`);
+                        }
+                    }
+                }
+                if (lastErrorLines.length > 0) {
+                    lastErrorInfoDiv.textContent = `Last error(s): ${lastErrorLines.join(', ')}`;
+                } else {
+                    lastErrorInfoDiv.textContent = `Last error: No fetch error logged`;
+                }
+            }
+
+            // --- Step 3: Fetch chart.csv and iterate through data-n.json files ---
+            let sensorChartData = {}; // Object to hold data per sensor: { "Sensor ID": [[timestamp, humidity], ...], ... }
+            let anyDataFileAvailable = false;
+            container.innerHTML = ''; // Clear loading message and any previous content
+
+            try {
+                // Fetch chart.csv once
+                const chartResponse = await fetch('chart.csv');
+                if (chartResponse.ok) {
+                    const chartCsvText = await chartResponse.text();
+                    const lines = chartCsvText.trim().split('\n');
+                    // Skip header line (index 0)
+                    for (let i = 1; i < lines.length; i++) {
+                        const [timestampStr, sensorId, humidityStr] = lines[i].split(',');
+                        const timestamp = new Date(timestampStr).getTime(); // Convert ISO string to milliseconds
+                        const humidity = parseFloat(humidityStr);
+
+                        // Only include data points within the last 24 hours (client-side filter for robustness)
+                        // Use sensorId as the key, since the csv now contains IDs instead of names
+                        if (sensorId && !isNaN(humidity) && !isNaN(timestamp) && (currentTime - timestamp <= MAX_HISTORY_DURATION_MS)) {
+                            if (!sensorChartData[sensorId]) {
+                                sensorChartData[sensorId] = [];
+                            }
+                            sensorChartData[sensorId].push([timestamp, humidity]);
+                        }
+                    }
+                    console.log('sensorChartData after CSV parse:', sensorChartData);
+                } else {
+                    console.warn('chart.csv not found or could not be loaded:', chartResponse.status);
+                }
+
+                // Iterate through data-n.json files
+                for (let i = 0; i < DATA_FILES.length; i++) {
+                    const dataFile = DATA_FILES[i];
+                    const hubNumber = i + 1; // Extract hub number (1-indexed)
+
+                    try {
+                        const dataResponse = await fetch(dataFile);
+                        if (dataResponse.ok) {
+                            anyDataFileAvailable = true;
+                            const dataJsonContent = await dataResponse.json();
+
+                            // Bug Fix 2: Iterate up to 16 sensors (ch_soil[0] to ch_soil[15])
+                            // Ensure dataJsonContent.ch_soil is an array and has elements
+                            if (dataJsonContent && dataJsonContent.ch_soil && Array.isArray(dataJsonContent.ch_soil)) {
+                                // Loop through all potential sensors (0 to 15 for 16 sensors)
+                                for (let sensorIndex = 0; sensorIndex < 16; sensorIndex++) {
+                                    const sensor = dataJsonContent.ch_soil[sensorIndex];
+
+                                    // Only process if sensor data exists for this index
+                                    if (sensor) {
+                                        const name = sensor.name || `Unknown Planter (${sensorIndex + 1})`; // Raw sensor name
+                                        const channelId = String(sensorIndex + 1); // Get channel ID as a string
+                                        const humidity = parseFloat(sensor.humidity);
+                                        const batteryLevel = parseInt(sensor.battery);
+
+                                        // Get color classes using the channelId for thresholds
+                                        const moistureColorClass = getMoistureColorClass(humidity, channelId);
+
+                                        const sensorCard = document.createElement('div');
+                                        sensorCard.className = 'sensor-card';
+
+                                        // New logic: Check if showHubId is defined and true
+                                        const displaySensorName = (typeof showHubId !== 'undefined' && showHubId)
+                                            ? `[${hubNumber}] ${name}`
+                                            : name;
+                                        
+                                        // Get the SVG for the battery icon
+                                        const batterySVG = createBatterySVG(batteryLevel);
+
+                                        sensorCard.innerHTML = `
+                                            <div class="sensor-text-content">
+                                                <div class="sensor-name">${displaySensorName}</div>
+                                                <div class="sensor-details-row">
+                                                    <div class="battery-icon-container">
+                                                        ${batterySVG}
+                                                    </div>
+                                                    <div class="moisture-value ${moistureColorClass}">${isNaN(humidity) ? '--' : humidity}%</div>
+                                                </div>
+                                            </div>
+                                            <canvas class="sensor-chart"></canvas>
+                                        `;
+                                        container.appendChild(sensorCard);
+
+                                        // Draw the chart for this sensor using data from sensorChartData, keyed by the channel ID
+                                        const chartCanvas = sensorCard.querySelector('.sensor-chart');
+                                        chartCanvas.width = chartCanvas.clientWidth;
+                                        chartCanvas.height = chartCanvas.clientHeight;
+                                        // Pass the channel ID to drawChart for correct color mapping and use it as the key to get the chart data
+                                        drawChart(chartCanvas, sensorChartData[channelId] || [], channelId);
+
+                                        // Add click listener to the small chart for zooming
+                                        chartCanvas.addEventListener('click', () => {
+                                            // Pass the channel ID as the key to get the chart data
+                                            showZoomedChart(name, channelId, hubNumber, sensorChartData[channelId] || []);
+                                        });
+                                        console.log(`Processing data from ${dataFile}: Sensor Name=${name}, Channel ID=${channelId}, Humidity=${humidity}, Battery=${batteryLevel}. Chart data found for ${name}: ${sensorChartData[channelId] ? sensorChartData[channelId].length : 'No data'}`);
+                                    }
+                                }
+                            }
+                        } else {
+                            console.warn(`Data file ${dataFile} not found or could not be loaded: ${dataResponse.status}`);
+                        }
+                    } catch (fileError) {
+                        console.error(`Error processing ${dataFile}:`, fileError);
+                    }
+                }
+
+                if (!anyDataFileAvailable) {
+                    container.innerHTML = '<p class="text-center text-red-500 col-span-full">No sensor data files (data-1.json to data-4.json) could be loaded.</p>';
+                } else if (loadingMessage) {
+                    loadingMessage.remove();
+                }
+
+            } catch (mainError) {
+                console.error('Error during main data loading process:', mainError);
+                container.innerHTML = `<p class="text-center text-red-500 col-span-full">Failed to load sensor data. Error: ${mainError.message}</p>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchAndDisplayData);
+    </script>
+</body>
+</html>

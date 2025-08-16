@@ -1,0 +1,32 @@
+// Default moisture thresholds
+const DEFAULT_MOISTURE_THRESHOLDS = {
+    good: 40,    // >= 40% is Stable
+    fair: 30,    // >= 30% is Water soon
+    warning: 20, // >= 20% is Water ASAP
+    critical: 0  // < 20% is Critical
+};
+
+// Specific moisture thresholds for individual sensors (keyed by raw sensor ID/channel)
+// Add entries here to customize thresholds for specific sensors.
+
+// My own values are in here for many sensors, you can comment out
+// any lines that you do not wish to be customized, in which case
+// color values fall back to the values above.
+
+const SENSOR_MOISTURE_THRESHOLDS = {
+    // Use the sensor's channel ID as the key (e.g., "1", "2", "3")
+    // "1": { good: 40, fair: 30, warning: 20, critical: 0 },
+    // "2": { good: 40, fair: 38, warning: 36, critical: 0 },
+    // "3": { good: 32, fair: 30, warning: 28, critical: 0 },
+    // "4": { good: 50, fair: 45, warning: 43, critical: 0 },
+    // "5": { good: 35, fair: 33, warning: 31, critical: 0 },
+    // "6": { good: 49, fair: 45, warning: 40, critical: 0 },
+    // "7": { good: 39, fair: 38, warning: 37, critical: 0 },
+    // "8": { good: 31, fair: 29, warning: 28, critical: 0 },
+    // "9": { good: 25, fair: 23, warning: 21, critical: 0 }
+};
+
+// Set to `false` to hide the hub ID (e.g., "[1]") from the sensor names.
+// If you use more than one hub, configure them in getdata.sh 
+const showHubId = false;
+
