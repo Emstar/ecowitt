@@ -1,5 +1,5 @@
 # ecowitt
-This project uses a bash script and web server to let you to see the status of all of your Ecowitt soil moisture sensors in one concise web page.
+This project uses a bash script and web server to let you to see the status of all of your Ecowitt soil moisture sensors in one concise web page. 
 
 <img width="1000" alt="image" src="https://github.com/user-attachments/assets/539045df-09fc-4f1b-a251-a7f94247232a" />
 
@@ -28,6 +28,7 @@ This display has two main enhancements over the official Ecowitt web app.
 
 * Up to 4 Ecowitt hubs are supported, and the system should automagically pick up new sensors when they come online.
 * The system will log the details of the last data fetch, and any errors it encountered -- look at the footer.
+* Sensor names are retrieved automatically from the "Live Data" page on the hub.
 * User-customized values for color mapping are broken out into a separate HTML file, separating code and content for the most part
 
 Clicking or tapping on a mini chart will open a zoomed in 24 hour view, and you can touch or mouse over the chart to see the moisture value at that time. This is easier and faster than digging around in the official Ecowitt charts, but you'll still need to use their app if you want to see more than 24 hours of history. 
