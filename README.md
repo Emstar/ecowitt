@@ -48,7 +48,7 @@ Your own edits to the moisture value/color maps will be stored in `customization
 
 When you view `index.html` in a browser, it looks at all data files, all timestamp files, the customization file, and the chart file to produce the sensor display. 
 
-## Installataion and configuration
+## Installation and configuration
 
 **Grab the latest release from this repo and unzip it.** 
 
