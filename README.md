@@ -8,7 +8,10 @@ This project was designed to work with the Ecowitt GW1100 hub updated to softwar
 
 `http://hub_ip_address/get_livedata_info`
 
-Other Ecowitt hubs will probably work. This release may work with Ecowitt clones such as Ambient Weather, I don't know.
+These Ecowitt hubs should support the required http api. However, I developed the project with a GW1100 so that is all that has been tested. 
+(For more information on Ecowitt APIs, [see this excellent wiki](https://meshka.eu/Ecowitt/dokuwiki/doku.php?id=start#b_retrieval_of_live_data_from_the_local_network_via_http_call_local_http_api).)
+
+GW1100, GW1200, GW2000, GW3000, WS6210, WN1700, WN1820, WN1821, WN1920, WN1980, WS3800, WS3820, WS3900, WS3910
 
 This monitor code is intended to run on some machine on your LAN which has a web server and the ability to run `bash` scripts. You will also need to install these packages if you don't already have them:
 
